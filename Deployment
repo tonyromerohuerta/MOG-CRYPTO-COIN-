@@ -1,33 +1,56 @@
+name: MOG Deployment
+
 on:
-push:
-branches:
-- main
-workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
+  ALCHEMY_KEY: ${{ secrets.ALCHEMY_KEY }}
+  NETWORK: sepolia          # change to mainnet for production
+  DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+  DEPLOYER_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }}
+  GIT_DEPLOY_KEY_PATH: ~/.ssh/id_rsa_mog
+  TOKEN_CONTRACT_ADDR: ${{ secrets.TOKEN_CONTRACT_ADDR }}
+  NFT_CONTRACT_ADDR: ${{ secrets.NFT_CONTRACT_ADDR }}
+  RWDA_CONTRACT_ADDR: ${{ secrets.RWDA_CONTRACT_ADDR }}
+  DAO_CONTRACT_ADDR: ${{ secrets.DAO_CONTRACT_ADDR }}
+  NODE_PORT: 8545
+  FRONTEND_PORT: 3000
+  LOG_DIR: ./logs
 
 jobs:
-deploy:
-runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-steps:
-- name: Checkout code
-  uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-- name: Set up Node.js
-  uses: actions/setup-node@v3
-  with:
-    node-version: 16
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-- name: Install dependencies
-  run: npm install
+      - name: Install dependencies
+        run: npm ci
 
-- name: Build project
-  run: npm run build
+      - name: Compile contracts
+        run: npx hardhat compile
 
-- name: Deploy to server
-  env:
-    DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
-    SERVER_IP: ${{ secrets.SERVER_IP }}
-    SERVER_USER: ${{ secrets.SERVER_USER }}
-  run: |
-    ssh -o StrictHostKeyChecking=no -i $DEPLOY_KEY $SERVER_USER@$SERVER_IP "mkdir -p ~/project"
-    scp -o StrictHostKeyChecking=no -i 
+      - name: Deploy contracts
+        env:
+          PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          NETWORK: ${{ env.NETWORK }}
+        run: |
+          npx hardhat run scripts/deploy.js --network $NETWORK
+          mkdir -p $LOG_DIR
+          echo "Deployment complete on $NETWORK" | tee -a $LOG_DIR/deploy.log
+
+      - name: Upload deployment logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-logs
+          path: ${{ env.LOG_DIR }}
