@@ -1,31 +1,92 @@
-MOGVERSE/
-│
-├─ contracts/
-│   ├─ MOGCardNFT.sol
-│   ├─ FusionFactory.sol
-│   ├─ MOGToken.sol
-│
-├─ backend/
-│   ├─ api/
-│   │   ├─ cards.py
-│   │   └─ __init__.py
-│   ├─ utils/
-│   │   ├─ blockchain.py
-│   │   └─ __init__.py
-│   ├─ main.py
-│   └─ requirements.txt
-│
-├─ frontend/
-│   ├─ src/
-│   │   ├─ pages/
-│   │   │   └─ Game.jsx
-│   │   ├─ components/
-│   │   └─ App.jsx
-│   ├─ package.json
-│   └─ vite.config.js
-│
-├─ deploy/
-│   ├─ deploy_contracts.js
-│   └─ config.js
-│
-└─ README.md
+
+4. Smart Contracts
+
+MOGCardNFT.sol
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MOGCardNFT is ERC721, Ownable {
+    uint256 public nextTokenId;
+    mapping(uint256 => string) private _tokenURIs;
+
+    constructor() ERC721("MOGCardNFT", "MOGC") {}
+
+    function mintCard(address to, string memory tokenURI) external onlyOwner returns (uint256) {
+        uint256 tokenId = nextTokenId;
+        _safeMint(to, tokenId);
+        _tokenURIs[tokenId] = tokenURI;
+        nextTokenId++;
+        return tokenId;
+    }
+
+    function burn(uint256 tokenId) external onlyOwner {
+        _burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(_exists(tokenId), "ERC721: token not minted");
+        return _tokenURIs[tokenId];
+    }
+}
+
+
+---
+
+FusionFactory.sol
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "./MOGCardNFT.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract FusionFactory {
+    IERC20 public mogToken;
+    MOGCardNFT public mogCard;
+
+    event FusionCompleted(address player, uint256 newCardId, string newName, uint256 timestamp);
+
+    constructor(address _mogToken, address _mogCardNFT) {
+        mogToken = IERC20(_mogToken);
+        mogCard = MOGCardNFT(_mogCardNFT);
+    }
+
+    function fuse(uint256 cardA, uint256 cardB, uint256 mogCost, string memory newName) external {
+        require(mogCard.ownerOf(cardA) == msg.sender && mogCard.ownerOf(cardB) == msg.sender, "Not owner");
+        require(mogToken.balanceOf(msg.sender) >= mogCost, "Insufficient MOG");
+
+        mogToken.transferFrom(msg.sender, address(this), mogCost);
+
+        mogCard.transferFrom(msg.sender, address(this), cardA);
+        mogCard.transferFrom(msg.sender, address(this), cardB);
+
+        mogCard.burn(cardA);
+        mogCard.burn(cardB);
+
+        uint256 newId = mogCard.mintCard(msg.sender, newName);
+
+        emit FusionCompleted(msg.sender, newId, newName, block.timestamp);
+    }
+}
+
+
+---
+
+MOGToken.sol (ERC20)
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MOGToken is ERC20 {
+    constructor(uint256 initialSupply) ERC20("MOGToken", "MOG") {
+        _mint(msg.sender, initialSupply);
+    }
+}
+
+
