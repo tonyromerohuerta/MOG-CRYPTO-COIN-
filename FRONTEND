@@ -1,0 +1,43 @@
+import React, { useState } from "react";
+import { ethers } from "ethers";
+
+const FACTORY_CONTRACT = "...";
+const MOG_TOKEN = "...";
+const NFT_CONTRACT = "...";
+
+export default function Game() {
+  const [cardA, setCardA] = useState("");
+  const [cardB, setCardB] = useState("");
+  const [result, setResult] = useState(null);
+
+  async function fuse() {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      const mogToken = new ethers.Contract(MOG_TOKEN, ["function approve(address,uint256)"], signer);
+      const nft = new ethers.Contract(NFT_CONTRACT, ["function approve(address,uint256)"], signer);
+      const factory = new ethers.Contract(FACTORY_CONTRACT, ["function fuse(uint256,uint256,uint256,string)"], signer);
+
+      const mogCost = ethers.parseUnits("50", 18);
+      await (await mogToken.approve(FACTORY_CONTRACT, mogCost)).wait();
+      await (await nft.approve(FACTORY_CONTRACT, cardA)).wait();
+      await (await nft.approve(FACTORY_CONTRACT, cardB)).wait();
+
+      const newName = "Fused MOG";
+      const tx = await factory.fuse(cardA, cardB, mogCost, newName);
+      const receipt = await tx.wait();
+      setResult(receipt);
+
+    } catch (e) { setResult({error:e.message}); }
+  }
+
+  return (
+    <div>
+      <input value={cardA} onChange={e=>setCardA(e.target.value)} placeholder="Card A ID"/>
+      <input value={cardB} onChange={e=>setCardB(e.target.value)} placeholder="Card B ID"/>
+      <button onClick={fuse}>Fuse</button>
+      {result && <pre>{JSON.stringify(result,null,2)}</pre>}
+    </div>
+  );
+}
