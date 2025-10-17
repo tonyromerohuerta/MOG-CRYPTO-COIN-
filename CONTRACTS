@@ -1,0 +1,31 @@
+MOGVERSE/
+│
+├─ contracts/
+│   ├─ MOGCardNFT.sol
+│   ├─ FusionFactory.sol
+│   ├─ MOGToken.sol
+│
+├─ backend/
+│   ├─ api/
+│   │   ├─ cards.py
+│   │   └─ __init__.py
+│   ├─ utils/
+│   │   ├─ blockchain.py
+│   │   └─ __init__.py
+│   ├─ main.py
+│   └─ requirements.txt
+│
+├─ frontend/
+│   ├─ src/
+│   │   ├─ pages/
+│   │   │   └─ Game.jsx
+│   │   ├─ components/
+│   │   └─ App.jsx
+│   ├─ package.json
+│   └─ vite.config.js
+│
+├─ deploy/
+│   ├─ deploy_contracts.js
+│   └─ config.js
+│
+└─ README.md
